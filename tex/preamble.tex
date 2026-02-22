@@ -1,0 +1,50 @@
+\documentclass[9pt]{extarticle}
+
+\usepackage[margin=18mm]{geometry}
+\usepackage{paracol}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{needspace}
+
+\setlength{\columnsep}{10mm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1pt}
+\setlength{\belowfootnoteskip}{14pt}
+
+\newcommand{\verselabel}[1]{\textsuperscript{\scriptsize #1}}
+\newcommand{\VersePair}[4]{%
+%  \Needspace{6\baselineskip}%
+  \noindent\verselabel{#1}\,#2\par
+  \switchcolumn[1]
+%  \Needspace{6\baselineskip}%
+  \noindent\verselabel{#3}\,#4\par
+  \switchcolumn[0]*
+}
+
+\newcommand{\poemindent}[1]{\hspace*{#1em}}
+% Start a new line iff we're currently mid-paragraph,
+% then typeset one poetry line.
+\newcommand{\poemline}[2]{%
+  \ifhmode\unskip\par\fi%
+  {\setlength{\parskip}{0pt}%
+   \setlength{\parindent}{0pt}%
+%   \fontsize{9pt}{10.2pt}\selectfont%
+   \noindent\poemindent{#1}#2\par}%
+}
+\newcommand{\ChapterHeading}[1]{%
+  \Needspace{6\baselineskip}%
+  \vspace{1.5em}
+  \begin{center}
+    \large\bfseries Chapter #1
+  \end{center}
+  \vspace{0.75em}
+}
+
+\usepackage{fontspec}
+\usepackage{polyglossia}
+
+\setmainlanguage{english}
+\setotherlanguage{hebrew}
+\newfontfamily\hebrewfont{Ezra SIL}
+
+\usepackage{hyperref}

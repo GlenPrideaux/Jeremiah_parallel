@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""
+02_parse_usfm.py
+
+Parse USFM sources into verse-indexed JSON for Jeremiah, preserving:
+
+- Verse boundaries (\c, \v)
+- USFM footnotes (\f ... \f*) extracted from \ft, optionally prefixed by \fr
+- Poetry structure (\q, \q1, \q2, \m, \p) encoded into the verse text using STRUCT_DELIM markers
+
+Output:
+  build/json/brenton_JER.json
+  build/json/web_JER.json
+
+Notes:
+- This script assumes you have already unpacked your USFM zips into build/usfm/* via 01_unpack_sources.py
+- It is intentionally conservative: it preserves content but normalises spacing/markup artefacts.
+"""
+
+import json
+import re
+from pathlib import Path
+
+
+# ----------------------------
+# Paths
+# ----------------------------
+ROOT = Path(__file__).resolve().parents[1]
+USFM_ROOT = ROOT / "build" / "usfm"
+OUT = ROOT / "build" / "json"
+OUT.mkdir(parents=True, exist_ok=True)
+
+
+# ----------------------------
+# USFM structural regexes
+# ----------------------------
+C_RE = re.compile(r"^\\c\s+(\d+)\s*$")
+V_RE = re.compile(r"^\\v\s+(\d+)([a-z]?)\s+(.*)$")
+
+# Poetry / paragraph markers (often appear on their own lines)
+Q_RE = re.compile(r"^\\q(\d*)\s+(.*)$")   # \q, \q1, \q2 ...
+M_RE = re.compile(r"^\\m\s+(.*)$")        # \m ...
+P_RE = re.compile(r"^\\p\s+(.*)$")        # \p ...
+
+
+# ----------------------------
+# Footnote extraction (USFM)
+# ----------------------------
+FOOTNOTE_BLOCK_RE = re.compile(r"\\f\b.*?\\f\*", re.DOTALL)
+FR_RE = re.compile(r"\\fr\b\s*([^\\]+)")
+FT_RE = re.compile(r"\\ft\b\s*([^\\]+)")
+
+# Some footnotes contain inline “character style” runs like \+wh ... \+wh*
+# These contain backslashes and will truncate naive \ft capture unless removed first.
+PLUS_MARK_RE = re.compile(r"\\\+[A-Za-z]+[* ]?")  # matches \+wh and \+wh* etc.
+
+# Markers inserted into verse strings so the LaTeX generator can turn them into \footnote{...}
+FOOTNOTE_DELIM = "\u241EFOOTNOTE\u241E"  # ␞FOOTNOTE␞ (very unlikely in source)
+
+
+def extract_usfm_footnotes(raw: str):
+    """
+    Returns (text_without_footnotes, list_of_footnote_strings).
+
+    Extracts \ft content from USFM footnote blocks: \f ... \f*
+    If \fr exists, prefixes the footnote with 'ref: '.
+    Removes \+xx / \+xx* inline markers inside the footnote so \ft capture isn't truncated.
+    """
+
+    footnotes = []
+
+    def repl(match):
+        block = match.group(0)
+
+        # Remove inline character-style markers (e.g., \+wh ... \+wh*)
+        block = PLUS_MARK_RE.sub("", block)
+
+        fr_m = FR_RE.search(block)
+        fr = fr_m.group(1).strip() if fr_m else ""
+
+        fts = [m.group(1).strip() for m in FT_RE.finditer(block)]
+        ft = " ".join(fts).strip()
+
+        if ft:
+            footnotes.append(f"{fr}: {ft}" if fr else ft)
+
+        # Remove whole footnote block from running text
+        return " "
+
+    cleaned = FOOTNOTE_BLOCK_RE.sub(repl, raw)
+    return cleaned, footnotes
+
+
+# ----------------------------
+# Inline cleanup / normalisation
+# ----------------------------
+PIPE_ATTR_RE = re.compile(r'\|[A-Za-z]+="[^"]*"')   # |strong="H3068", |lemma="..."
+USFM_MARK_RE = re.compile(r'\\[A-Za-z]+\d*\*?')     # \w, \w*, \add, \add*, etc.
+STAR_RE = re.compile(r"\*+")                        # stray * markers (some editions)
+
+def normalise_line(line: str) -> str:
+    """
+    Clean a fragment of verse text (not the whole verse structure).
+    IMPORTANT: Footnotes should already be extracted before calling this.
+    """
+
+    # Normalise non-breaking spaces
+    line = line.replace("\u00A0", " ")
+
+    # Remove pipe attributes (Strong’s/lemma/etc.)
+    line = PIPE_ATTR_RE.sub("", line)
+
+    # Remove leftover star markers
+    line = STAR_RE.sub("", line)
+
+    # Remove USFM inline markers (replace with a space to preserve word breaks)
+    line = USFM_MARK_RE.sub(" ", line)
+
+    # Remove stray pipes
+    line = line.replace("|", " ")
+
+    # Collapse whitespace early
+    line = re.sub(r"\s+", " ", line).strip()
+
+    # Fix contractions/possessives: apostrophe BETWEEN letters
+    # don ' t -> don't, Yahweh ’s -> Yahweh’s
+    line = re.sub(r"(?<=\w)\s*([’'])\s*(?=\w)", r"\1", line)
+
+    # Quote spacing:
+    # Remove spaces AFTER opening quotes: ‘ I -> ‘I, “ I -> “I, ' I -> 'I
+    line = re.sub(r"([‘“'\"])\s+(\w)", r"\1\2", line)
+
+    # Ensure a space AFTER closing double quotes when a word follows: ”for -> ” for
+    line = re.sub(r"([”\"])(\w)", r"\1 \2", line)
+
+    # Ensure a space AFTER closing single quote ONLY when it follows punctuation:
+    # ;’for -> ;’ for
+    line = re.sub(r"([,.;:!?])([’'])(\w)", r"\1\2 \3", line)
+
+    # Remove space before common punctuation
+    line = re.sub(r"\s+([,.;:!?])", r"\1", line)
+
+    return line
+
+
+# ----------------------------
+# Poetry structure encoding
+# ----------------------------
+# We encode structure into verse text so the LaTeX generator can render poetry lines:
+#
+#   ␞Q:2␞line text   (poetry line with indent level 2)
+#   ␞P␞prose text    (prose chunk)
+#
+STRUCT_DELIM = "\u241E"  # ␞ (record separator symbol)
+def encode_chunk(kind: str, indent: int, text: str) -> str:
+    if kind == "q":
+        return f"{STRUCT_DELIM}Q:{indent}{STRUCT_DELIM}{text}"
+    return f"{STRUCT_DELIM}P{STRUCT_DELIM}{text}"
+
+
+# ----------------------------
+# Core parser
+# ----------------------------
+def parse_usfm_file(path: Path):
+    """
+    Parse a USFM file into a dict of verses keyed as "CH:V".
+
+    - Captures \c (chapter) and \v (verse) markers.
+    - Extracts USFM footnote blocks: \f ... \f* (keeps \ft content, optionally prefixed by \fr)
+    - Preserves poetry structure via \q/\q1/\q2, \m, \p (encoded into the verse string)
+    - Normalises inline tags and spacing
+
+    Returns: (book_id, verses_dict)
+    """
+    book = None
+    chapter = None
+    verses = {}  # key: "CH:V" -> encoded verse text with FOOTNOTE_DELIM markers
+
+    current_v = None
+    chunks = []    # list of encoded chunks (poetry/prose)
+    footbuf = []   # list of extracted footnotes for current verse
+
+    def flush_current():
+        nonlocal current_v, chunks, footbuf
+        if current_v is None:
+            chunks = []
+            footbuf = []
+            return
+
+        text = " ".join(chunks).strip()
+
+        if footbuf:
+            for fn in footbuf:
+                fn = fn.strip()
+                if fn:
+                    text += f" {FOOTNOTE_DELIM}{fn}{FOOTNOTE_DELIM}"
+
+        verses[current_v] = text
+        chunks = []
+        footbuf = []
+
+    with path.open("r", encoding="utf-8", errors="ignore") as f:
+        for raw in f:
+            line = raw.rstrip("\n")
+
+            # Book id
+            if line.startswith("\\id "):
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    book = parts[1].upper()
+                continue
+
+            s = line.strip()
+
+            # Chapter marker
+            m = C_RE.match(s)
+            if m:
+                flush_current()
+                chapter = int(m.group(1))
+                current_v = None
+                continue
+
+            # Verse marker
+            m = V_RE.match(s)
+            if m and chapter is not None:
+                flush_current()
+
+                vnum = int(m.group(1))
+                vsuf = (m.group(2) or "").lower()   # '', 'a', 'b', ...
+                current_v = f"{chapter}:{vnum}{vsuf}"
+
+                # start verse with any pending headings (if you still have that feature)
+                # if pending_headings:
+                #     chunks.extend(pending_headings)
+                #     pending_headings = []
+
+                raw_text = m.group(3)
+                raw_text, fns = extract_usfm_footnotes(raw_text)
+                footbuf.extend(fns)
+                
+                t = normalise_line(raw_text)
+                if t:
+                    chunks.append(encode_chunk("p", 0, t))
+                continue
+            
+            # Continuation lines: may contain poetry markers or prose continuation
+            if current_v is not None and s:
+                # Poetry line?
+                qm = Q_RE.match(s)
+                if qm:
+                    level = int(qm.group(1) or "1")
+                    raw_text = qm.group(2)
+                    raw_text, fns = extract_usfm_footnotes(raw_text)
+                    footbuf.extend(fns)
+                    t = normalise_line(raw_text)
+                    if t:
+                        chunks.append(encode_chunk("q", level, t))
+                    continue
+
+                # Poetry paragraph (flush-left)
+                mm = M_RE.match(s)
+                if mm:
+                    raw_text = mm.group(1)
+                    raw_text, fns = extract_usfm_footnotes(raw_text)
+                    footbuf.extend(fns)
+                    t = normalise_line(raw_text)
+                    if t:
+                        chunks.append(encode_chunk("q", 1, t))
+                    continue
+
+                # Prose paragraph marker
+                pm = P_RE.match(s)
+                if pm:
+                    raw_text = pm.group(1)
+                    raw_text, fns = extract_usfm_footnotes(raw_text)
+                    footbuf.extend(fns)
+                    t = normalise_line(raw_text)
+                    if t:
+                        chunks.append(encode_chunk("p", 0, t))
+                    continue
+
+                # Default continuation line (treat as prose continuation)
+                raw_text = s
+                raw_text, fns = extract_usfm_footnotes(raw_text)
+                footbuf.extend(fns)
+                t = normalise_line(raw_text)
+                if t:
+                    chunks.append(encode_chunk("p", 0, t))
+
+    flush_current()
+    return book, verses
+
+
+# ----------------------------
+# Locate Jeremiah in a USFM tree
+# ----------------------------
+def find_book_file(folder: Path, book_id: str) -> Path:
+    """
+    Find a USFM file whose \id matches book_id (e.g. JER).
+    Falls back to filename contains book_id.
+    """
+    for p in folder.rglob("*.usfm"):
+        txt = p.read_text(encoding="utf-8", errors="ignore")
+        if txt.startswith("\\id " + book_id):
+            return p
+    for p in folder.rglob(f"*{book_id}*.usfm"):
+        return p
+    raise FileNotFoundError(f"Could not find {book_id} in {folder}")
+
+
+# ----------------------------
+# Main
+# ----------------------------
+def main():
+    # Adjust book ids if your set uses a different code for Jeremiah.
+    jobs = [
+        ("brenton", "JER"),
+        ("web", "JER"),
+    ]
+
+    folders = [p for p in USFM_ROOT.iterdir() if p.is_dir()]
+    if not folders:
+        raise RuntimeError(f"No unpacked USFM folders found under {USFM_ROOT}. Run 01_unpack_sources.py first.")
+
+    for label, book_id in jobs:
+        candidates = [p for p in folders if label.lower() in p.name.lower()]
+        base = candidates[0] if candidates else folders[0]
+
+        usfm_path = find_book_file(base, book_id)
+        book, verses = parse_usfm_file(usfm_path)
+
+        out_path = OUT / f"{label}_{book_id}.json"
+        out_path.write_text(json.dumps(verses, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Wrote {out_path} ({len(verses)} verses) from {usfm_path}")
+
+if __name__ == "__main__":
+    main()

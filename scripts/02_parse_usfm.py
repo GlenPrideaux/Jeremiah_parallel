@@ -9,7 +9,7 @@ Parse USFM sources into verse-indexed JSON for Jeremiah, preserving:
 - Poetry structure (\q, \q1, \q2, \m, \p) encoded into the verse text using STRUCT_DELIM markers
 
 Output:
-  build/json/brenton_JER.json
+  build/json/prideaux_JER.json
   build/json/web_JER.json
 
 Notes:
@@ -57,6 +57,12 @@ PLUS_MARK_RE = re.compile(r"\\\+[A-Za-z]+[* ]?")  # matches \+wh and \+wh* etc.
 # Markers inserted into verse strings so the LaTeX generator can turn them into \footnote{...}
 FOOTNOTE_DELIM = "\u241EFOOTNOTE\u241E"  # ␞FOOTNOTE␞ (very unlikely in source)
 
+ADD_OPEN = "\u241EADDOPEN\u241E"
+ADD_CLOSE = "\u241EADDCLOSE\u241E"
+SC_OPEN = "\u241ESCOPEN\u241E"
+SC_CLOSE = "\u241ESCCLOSE\u241E"
+SUP_OPEN = "\u241ESUPOPEN\u241E"
+SUP_CLOSE = "\u241ESUPCLOSE\u241E"
 
 def extract_usfm_footnotes(raw: str):
     """
@@ -107,6 +113,13 @@ def normalise_line(line: str) -> str:
     # Normalise non-breaking spaces
     line = line.replace("\u00A0", " ")
 
+    line = line.replace("\\add*", ADD_CLOSE)
+    line = line.replace("\\add ", ADD_OPEN)
+    line = line.replace("\\sc*", SC_CLOSE)
+    line = line.replace("\\sc ", SC_OPEN)
+    line = line.replace("\\sup*", SUP_CLOSE)
+    line = line.replace("\\sup ", SUP_OPEN)
+    
     # Remove pipe attributes (Strong’s/lemma/etc.)
     line = PIPE_ATTR_RE.sub("", line)
 
@@ -152,6 +165,9 @@ def normalise_line(line: str) -> str:
 #   ␞P␞prose text    (prose chunk)
 #
 STRUCT_DELIM = "\u241E"  # ␞ (record separator symbol)
+STYLE_HDG = f"{STRUCT_DELIM}STYLE:HDG{STRUCT_DELIM}"
+STYLE_PARA = f"{STRUCT_DELIM}STYLE:PARA{STRUCT_DELIM}"
+
 def encode_chunk(kind: str, indent: int, text: str) -> str:
     if kind == "q":
         return f"{STRUCT_DELIM}Q:{indent}{STRUCT_DELIM}{text}"
@@ -179,7 +195,9 @@ def parse_usfm_file(path: Path):
     current_v = None
     chunks = []    # list of encoded chunks (poetry/prose)
     footbuf = []   # list of extracted footnotes for current verse
-
+    after_d = False
+    after_p = False
+    
     def flush_current():
         nonlocal current_v, chunks, footbuf
         if current_v is None:
@@ -212,6 +230,14 @@ def parse_usfm_file(path: Path):
 
             s = line.strip()
 
+            if s == r"\d" or s.startswith(r"\d "):
+                # we don't need to store \d itself for our purposes; just remember it
+                after_d = True
+                continue
+            if s == r"\p" or s == r"\p ":
+                # we don't need to store \p itself for our purposes; just remember it
+                after_p = True
+                continue
             # Chapter marker
             m = C_RE.match(s)
             if m:
@@ -235,11 +261,29 @@ def parse_usfm_file(path: Path):
                 #     pending_headings = []
 
                 raw_text = m.group(3)
+                is_heading_verse = False
+                is_para = False
+                # If it follows \d, treat as a heading-verse
+                if after_d:
+                    is_heading_verse = True
+                    after_d = False  # consumed the \d context
+                else:
+                    after_d = False  # \d context only applies to the immediate next verse
+                # If it follows \p, treat as a paragraph starter
+                if after_p:
+                    is_para = True
+                    after_p = False  # consumed the \d context
+                else:
+                    after_p = False  # \d context only applies to the immediate next verse
+
                 raw_text, fns = extract_usfm_footnotes(raw_text)
                 footbuf.extend(fns)
-                
                 t = normalise_line(raw_text)
                 if t:
+                    if is_heading_verse:
+                        t = STYLE_HDG + t
+                    if is_para:
+                        t = STYLE_PARA + t
                     chunks.append(encode_chunk("p", 0, t))
                 continue
             
@@ -271,7 +315,7 @@ def parse_usfm_file(path: Path):
                 # Prose paragraph marker
                 pm = P_RE.match(s)
                 if pm:
-                    raw_text = pm.group(1)
+                    raw_text = STYLE_PARA + pm.group(1)
                     raw_text, fns = extract_usfm_footnotes(raw_text)
                     footbuf.extend(fns)
                     t = normalise_line(raw_text)
@@ -314,7 +358,7 @@ def find_book_file(folder: Path, book_id: str) -> Path:
 def main():
     # Adjust book ids if your set uses a different code for Jeremiah.
     jobs = [
-        ("brenton", "JER"),
+        ("prideaux", "JER"),
         ("web", "JER"),
     ]
 

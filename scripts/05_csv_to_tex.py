@@ -10,6 +10,12 @@ FOOTNOTE_DELIM = "\u241EFOOTNOTE\u241E"
 import re
 
 HEBREW_RE = re.compile(r'[\u0590-\u05FF]+')
+ADD_OPEN = "\u241EADDOPEN\u241E"
+ADD_CLOSE = "\u241EADDCLOSE\u241E"
+SC_OPEN = "\u241ESCOPEN\u241E"
+SC_CLOSE = "\u241ESCCLOSE\u241E"
+SUP_OPEN = "\u241ESUPOPEN\u241E"
+SUP_CLOSE = "\u241ESUPCLOSE\u241E"
 
 def wrap_hebrew(text):
     return HEBREW_RE.sub(lambda m: r'\texthebrew{' + m.group(0) + '}', text)
@@ -40,43 +46,93 @@ def esc(s: str) -> str:
     return s
 
 STRUCT_DELIM = "\u241E"
+STYLE_HDG = f"{STRUCT_DELIM}STYLE:HDG{STRUCT_DELIM}"
+STYLE_PARA = f"{STRUCT_DELIM}STYLE:PARA{STRUCT_DELIM}"
+
+
+def render_markers(escaped_text: str) -> str:
+    return (escaped_text
+            .replace(ADD_OPEN, r"\textit{")
+            .replace(ADD_CLOSE, "}")
+            .replace(SC_OPEN, r"\textsc{")
+            .replace(SC_CLOSE, "}")
+            .replace(SUP_OPEN, r"\textsuperscript{")
+            .replace(SUP_CLOSE, "}")
+           )
 
 def render_structured_to_latex(escaped_text: str) -> str:
-    # escaped_text already LaTeX-escaped and Hebrew-wrapped if you do that step.
     if STRUCT_DELIM not in escaped_text:
         return escaped_text
+
+    def render_heading_verse(text: str) -> str:
+        # Space above + bold, but still stays in the column (not spanning both)
+        return r"\par\vspace{0.3\baselineskip}\textbf{" + text.strip() + r"}\par\vspace{0.6\baselineskip}"
 
     parts = escaped_text.split(STRUCT_DELIM)
     out = []
     i = 0
+    pending_heading = False
+    PILCROW = r"{\small\textparagraph\thinspace}"
+    
     while i < len(parts):
         token = parts[i]
+
+        # Our style marker is a standalone token after splitting
+        if token == "STYLE:HDG":
+            pending_heading = True
+            i += 1
+            continue
+
         if token.startswith("Q:"):
             indent = int(token[2:]) if token[2:].isdigit() else 1
             if i + 1 < len(parts):
                 line = parts[i + 1].strip()
+                # If you ever tag a poem line as heading, you can decide what to do here.
                 out.append(rf"\poemline{{{indent}}}{{{line}}}")
                 i += 2
             else:
                 i += 1
+
         elif token == "P":
+            if i+2 < len(parts) and parts[i+2] == "STYLE:PARA":
+                i += 2
+                if len(out):
+                    out.append(r"\par" + PILCROW)
+                else:
+                    out.append(PILCROW)
+                
             if i + 1 < len(parts):
-                out.append(parts[i + 1].strip() + " ")
+                seg = parts[i + 1].strip()
+
+                # Sometimes seg is empty because the verse starts with ␞STYLE:HDG␞
+                # In that case, just skip the empty payload.
+                if seg:
+                    if pending_heading:
+                        out.append(render_heading_verse(seg) + " ")
+                        pending_heading = False
+                    else:
+                        out.append(seg + " ")
                 i += 2
             else:
                 i += 1
+
         else:
-            # plain text (fallback)
+            # Fallback: plain text token
             if token.strip():
-                out.append(token.strip() + " ")
+                if pending_heading:
+                    out.append(render_heading_verse(token) + " ")
+                    pending_heading = False
+                else:
+                    out.append(token.strip() + " ")
+
             i += 1
 
     rendered = "".join(out).strip()
 
-    # If any poemlines were used, wrap in a group that keeps \\ safe
     if r"\poemline" in rendered:
         rendered = r"{\raggedright " + rendered + "}"
     return rendered
+
 
 def parse_ref(ref: str) -> tuple[int, int]:
     # ref like "12:7" (ignore any suffixes if you later add them)
@@ -110,8 +166,8 @@ def main():
 
             lxx_ref = esc(r["lxx_ref"])
             mt_ref  = esc(r["mt_ref"])
-            lxx_txt = render_structured_to_latex(inject_latex_footnotes(wrap_hebrew(esc(r["lxx_text"]))))
-            mt_txt  = render_structured_to_latex(inject_latex_footnotes(wrap_hebrew(esc(r["mt_text"]))))
+            lxx_txt = render_structured_to_latex(inject_latex_footnotes(render_markers(wrap_hebrew(esc(r["lxx_text"])))))
+            mt_txt  = render_structured_to_latex(inject_latex_footnotes(render_markers(wrap_hebrew(esc(r["mt_text"])))))
             out.write(f"\\VersePair{{{lxx_ref}}}{{{lxx_txt}}}{{{mt_ref}}}{{{mt_txt}}}\n")
 
         out.write(r"""\end{paracol}

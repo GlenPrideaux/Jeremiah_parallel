@@ -10,8 +10,21 @@
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1pt}
 \setlength{\belowfootnoteskip}{14pt}
+% Width reserved for verse numbers (tune)
 
-\newcommand{\verselabel}[1]{\textsuperscript{\scriptsize #1}}
+\newlength{\verselabelwidth}
+\newlength{\verselabelgap}
+
+% Measure width from the widest label you expect (Jeremiah: "52:34")
+\settowidth{\verselabelwidth}{\scriptsize 52:34}
+
+% Half-hanging label: half in margin, half in text
+\newcommand{\verselabel}[1]{%
+    \hspace*{-0.5\verselabelwidth}%
+    {\textsuperscript{\scriptsize #1}}%
+}
+
+% \newcommand{\verselabel}[1]{\textsuperscript{\scriptsize #1}}
 \newcommand{\VersePair}[4]{%
 %  \Needspace{6\baselineskip}%
   \noindent\verselabel{#1}\,#2\par

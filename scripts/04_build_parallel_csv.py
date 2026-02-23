@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAP = ROOT / "data" / "mapping_lxx_to_mt.csv"
-LXX = ROOT / "build" / "json" / "brenton_JER.json"
+LXX = ROOT / "build" / "json" / "prideaux_JER.json"
 MT  = ROOT / "build" / "json" / "web_JER.json"
 OUT = ROOT / "build" / "jeremiah_parallel.csv"
 

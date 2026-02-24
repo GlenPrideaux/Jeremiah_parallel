@@ -1,5 +1,4 @@
 import zipfile
-import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,9 +13,3 @@ for z in SRC.glob("*.zip"):
     with zipfile.ZipFile(z, "r") as zf:
         zf.extractall(target)
     print(f"Unpacked {z.name} -> {target}")
-
-
-shutil.copy(
-    "sources/25-JEReng-Prideaux.usfm",
-    "build/usfm/eng-Prideaux_usfm"
-)

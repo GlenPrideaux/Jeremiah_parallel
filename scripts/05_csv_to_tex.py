@@ -148,10 +148,8 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", encoding="utf-8") as out:
-        out.write(r"""\input{preamble.tex}
-\begin{document}
-\input{intro}
-\section*{Jeremiah (Parallel) — LXX order}
+        out.write(r"""
+\section*{Jeremiah Parallel Edition — Septuagint order}
 """)
 
         current_ch = None

@@ -1,10 +1,11 @@
-\documentclass[9pt]{extarticle}
+\documentclass[9pt]{extbook}
 
 \usepackage[margin=18mm]{geometry}
 \usepackage{paracol}
 \usepackage{microtype}
 \usepackage{hyperref}
 \usepackage{needspace}
+\usepackage{xcolor}
 
 \setlength{\columnsep}{10mm}
 \setlength{\parindent}{0pt}
@@ -23,14 +24,26 @@
     \hspace*{-0.5\verselabelwidth}%
     {\textsuperscript{\scriptsize #1}}%
 }
+\newcommand{\emptyverselabel}[1]{%
+    \hspace*{-0.5\verselabelwidth}%
+    {\textsuperscript{\scriptsize\textcolor{gray}{#1}}}%
+}
+\newcommand{\smartverse}[2]{%
+\noindent
+\if\relax\detokenize{#2}\relax
+\emptyverselabel{#1}
+\else
+\verselabel{#1}
+\fi
+\,#2\par
+}
 
-% \newcommand{\verselabel}[1]{\textsuperscript{\scriptsize #1}}
 \newcommand{\VersePair}[4]{%
-%  \Needspace{6\baselineskip}%
-  \noindent\verselabel{#1}\,#2\par
+  % \noindent\verselabel{#1}\,#2\par
+  \smartverse{#1}{#2}
   \switchcolumn[1]
-%  \Needspace{6\baselineskip}%
-  \noindent\verselabel{#3}\,#4\par
+  % \noindent\verselabel{#3}\,#4\par
+  \smartverse{#3}{#4}
   \switchcolumn[0]*
 }
 
@@ -39,6 +52,7 @@
 % then typeset one poetry line.
 \newcommand{\poemline}[2]{%
   \ifhmode\unskip\par\fi%
+  \ifnum#1>1 \penalty5000 \fi
   {\setlength{\parskip}{0pt}%
    \setlength{\parindent}{0pt}%
 %   \fontsize{9pt}{10.2pt}\selectfont%
@@ -70,3 +84,7 @@
 \usepackage{hyperref}
 \tolerance=1000
 \emergencystretch=2em
+\hbadness=5000
+
+\widowpenalty=6000
+\clubpenalty=3000

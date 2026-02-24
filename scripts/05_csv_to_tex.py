@@ -66,7 +66,7 @@ def render_structured_to_latex(escaped_text: str) -> str:
 
     def render_heading_verse(text: str) -> str:
         # Space above + bold, but still stays in the column (not spanning both)
-        return r"\par\vspace{0.3\baselineskip}\textbf{" + text.strip() + r"}\par\vspace{0.6\baselineskip}"
+        return r"\DescriptiveHeading{" + text.strip() + r"}"
 
     parts = escaped_text.split(STRUCT_DELIM)
     out = []

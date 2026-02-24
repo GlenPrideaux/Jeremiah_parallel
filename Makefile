@@ -17,6 +17,7 @@ tex: csv
 
 pdf: tex
 	cd tex && xelatex -interaction=nonstopmode jeremiah_parallel.tex
+	cp tex/jeremiah_parallel.pdf .
 
 clean:
 	rm -rf build/*

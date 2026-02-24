@@ -52,12 +52,21 @@
   \end{center}
   \vspace{0.75em}
 }
-
+\newcommand{\DescriptiveHeading}[1]{%
+\raggedright\par\vspace{-0.3\baselineskip}{\large\textbf{#1}}\par\vspace{0.6\baselineskip}
+}
 \usepackage{fontspec}
 \usepackage{polyglossia}
+%\setmainfont{Libertinus Serif}
+\setmainfont{TeX Gyre Pagella}
 
 \setmainlanguage{english}
 \setotherlanguage{hebrew}
-\newfontfamily\hebrewfont{Ezra SIL}
-
+\newfontfamily\hebrewfont[
+  BoldFont       = {Ezra SIL},
+  ItalicFont     = {Ezra SIL},
+  BoldItalicFont = {Ezra SIL}
+]{Ezra SIL}
 \usepackage{hyperref}
+\tolerance=1000
+\emergencystretch=2em

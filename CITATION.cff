@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use this project, please cite the Zenodo publication listed below."
+title: "Jeremiah Parallel Edition: An English Alignment of the Septuagint and Masoretic Text Traditions"
+type: book
+authors:
+  - family-names: "Prideaux"
+    given-names: "Glen"
+    affiliation: "Independent Scholar"
+    country: "Australia"
+repository-code: "https://github.com/GlenPrideaux/Jeremiah_parallel"
+url: "https://github.com/GlenPrideaux/Jeremiah_parallel"
+license: "CC-BY-NC-4.0"
+abstract: >
+  A verse-aligned English parallel edition of the Book of Jeremiah in its
+  Masoretic and Septuagint textual traditions, designed to make structural and
+  literary differences between the two major textual forms directly accessible
+  to readers without Hebrew or Greek.
+keywords:
+  - Septuagint
+  - Jeremiah
+  - Masoretic Text
+  - Textual Criticism
+  - Hebrew Bible
+  - Biblical Studies
+  - Parallel Edition
+  - LXX
+doi: 10.5281/zenodo.18811099
+version: "1.0"
+date-released: 2026-01-01
+
+preferred-citation:
+  type: book
+  authors:
+    - family-names: "Prideaux"
+      given-names: "Glen"
+  title: "Jeremiah Parallel Edition: An English Alignment of the Septuagint and Masoretic Text Traditions"
+  publisher: "Zenodo"
+  year: 2026
+  doi: 10.5281/zenodo.18811099
+  url: "https://doi.org/10.5281/zenodo.18811099"

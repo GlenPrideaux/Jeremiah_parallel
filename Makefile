@@ -14,7 +14,7 @@ ZIP_FILES := \
 $(WEB_USFM_ZIP):
 	mkdir -p build
 	curl -L -o $@ https://ebible.org/Scriptures/eng-web_usfm.zip
-$(WEB_USFM_ZIP):
+$(WEBBE_USFM_ZIP):
 	mkdir -p build
 	curl -L -o $@ https://ebible.org/Scriptures/eng-webbe_usfm.zip
 

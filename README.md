@@ -36,7 +36,7 @@ This repository contains the source files and build system used to generate the 
 Masoretic tradition represented through:
 
 - **World English Bible (WEB)**  
-  USFM digital distribution via eBible.org
+  USFM digital distribution via eBible.org. Since the WEB is also available in a British English edition there are two corresponding versions of this parallel edition. The differences are only in the WEB column.
 
 Septuagint tradition represented through:
 

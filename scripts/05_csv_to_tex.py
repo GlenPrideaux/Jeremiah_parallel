@@ -1,9 +1,18 @@
-import csv
+import csv, argparse
 from pathlib import Path
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-b", action="store_true", help="Use the British English version of WEB")
+
+args = parser.parse_args()
+
 ROOT = Path(__file__).resolve().parents[1]
-INP = ROOT / "build" / "jeremiah_parallel.csv"
-OUT = ROOT / "tex" / "jeremiah_parallel.tex"
+if args.b:
+    INP = ROOT / "build" / "jeremiah_parallel_be.csv"
+    OUT = ROOT / "tex" / "jeremiah_parallel_be.tex"
+else:
+    INP = ROOT / "build" / "jeremiah_parallel.csv"
+    OUT = ROOT / "tex" / "jeremiah_parallel.tex"
 
 FOOTNOTE_DELIM = "\u241EFOOTNOTE\u241E"
 

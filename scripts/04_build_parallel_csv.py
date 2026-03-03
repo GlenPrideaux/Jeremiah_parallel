@@ -1,11 +1,21 @@
-import csv, json, re
+import csv, json, re, argparse
 from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-b", action="store_true", help="Use the British English version of WEB")
+
+args = parser.parse_args()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MAP = ROOT / "data" / "mapping_lxx_to_mt.csv"
 LXX = ROOT / "build" / "json" / "prideaux_JER.json"
-MT  = ROOT / "build" / "json" / "web_JER.json"
-OUT = ROOT / "build" / "jeremiah_parallel.csv"
+if args.b:
+    MT  = ROOT / "build" / "json" / "webbe_JER.json"
+    OUT = ROOT / "build" / "jeremiah_parallel_be.csv"
+else:
+    MT  = ROOT / "build" / "json" / "web_JER.json"
+    OUT = ROOT / "build" / "jeremiah_parallel.csv"
 
 RANGE_RE = re.compile(r"^(\d+:\d+)\s*-\s*(\d+:\d+)$")
 

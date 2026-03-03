@@ -348,6 +348,7 @@ def main():
     jobs = [
         ("prideaux", "JER"),
         ("web", "JER"),
+        ("webbe", "JER"),
     ]
 
     folders = [p for p in USFM_ROOT.iterdir() if p.is_dir()]

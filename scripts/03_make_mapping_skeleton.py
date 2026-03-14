@@ -3,8 +3,8 @@ import csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BR_JSON = ROOT / "build" / "json" / "brenton_JER.json"
-OUT = ROOT / "data" / "mapping_lxx_to_mt.csv"
+BR_JSON = ROOT / "build" / "json" / "prideaux_ESG.json"
+OUT = ROOT / "data" / "mapping.csv"
 
 import re
 
@@ -42,9 +42,9 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["lxx_ref", "mt_ref"])
+        w.writerow(["lxx_ref", "L_ref",  "mt_ref"])
         for r in refs:
-            w.writerow([r, r])  # identity placeholder
+            w.writerow([r, r, r])  # identity placeholder
     print(f"Wrote skeleton mapping with {len(refs)} rows -> {OUT}")
 
 if __name__ == "__main__":

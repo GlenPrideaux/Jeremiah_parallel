@@ -8,19 +8,16 @@ args = parser.parse_args()
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MAP = ROOT / "data" / "mapping.csv"
+MAP = ROOT / "data" / "mapping_lxx_to_mt.csv"
+LXX = ROOT / "build" / "json" / "prideaux_JER.json"
 if args.b:
-    LXX = ROOT / "build" / "json" / "webbe_ESGV.json"
-    MT  = ROOT / "build" / "json" / "webbe_EST.json"
-    AT =  ROOT / "build" / "json" / "PrideauxBE_ESGA.json"
-    OUT = ROOT / "build" / "esther_parallel_be.csv"
+    MT  = ROOT / "build" / "json" / "webbe_JER.json"
+    OUT = ROOT / "build" / "jeremiah_parallel_be.csv"
 else:
-    LXX = ROOT / "build" / "json" / "web_ESGV.json"
-    MT  = ROOT / "build" / "json" / "web_EST.json"
-    AT =  ROOT / "build" / "json" / "Prideaux_ESGA.json"
-    OUT = ROOT / "build" / "esther_parallel.csv"
+    MT  = ROOT / "build" / "json" / "web_JER.json"
+    OUT = ROOT / "build" / "jeremiah_parallel.csv"
 
-RANGE_RE = re.compile(r"^(\d+:\d+[a-z]?)\s*-\s*(\d+:\d+[a-z]?)$")
+RANGE_RE = re.compile(r"^(\d+:\d+)\s*-\s*(\d+:\d+)$")
 
 import re
 
@@ -38,7 +35,6 @@ def parse_ref(ref: str) -> tuple[int, int, str]:
     ch = int(m.group(1))
     v  = int(m.group(2))
     suf = (m.group(3) or "").lower()
-#    print(f"ch {ch}: v {v} suf {suf}")
     return ch, v, suf
 
 def ref_sort_key(ref: str) -> tuple[int, int, int]:
@@ -54,88 +50,58 @@ def ref_to_tuple(ref: str):
     suf_ord = 0 if suf == "" else (ord(suf) - ord("a") + 1)
     return (ch, v, suf_ord)
 
-def expand_range_old(start: str, end: str):
-#    print(f"start {start} - end {end}")
+def expand_range(start: str, end: str):
     sc, sv, ss = parse_ref(start)
     ec, ev, es = parse_ref(end)
     if ss or es:
-        if sv != ev:
-            raise ValueError(f"Ranges with suffixes not supported with different verse numbers: {start}-{end}")
-        if ss == '':
-                    return [f"{sc}:{sv}"]+[f"{sc}:{sv}{chr(ss)}" for ss in range(ord('a'), ord(es) + 1)]
-#        print([f"{sc}:{sv}{chr(ss)}" for ss in range(ord(ss), ord(es) + 1)])
-        return [f"{sc}:{sv}{chr(ss)}" for ss in range(ord(ss), ord(es) + 1)]
+        raise ValueError(f"Ranges with suffixes not supported: {start}-{end}")
     if sc != ec:
         raise ValueError(f"Range crosses chapters: {start}-{end}")
     return [f"{sc}:{vv}" for vv in range(sv, ev + 1)]
 
-def expand_ref_old(ref):
-    if not ref.strip():
-        return ["---"]
-    m = RANGE_RE.match(ref.strip())
-    if m:
-#        print(f"RANGE_RE matched {ref} in expand_ref()")
-        start, end = m.group(1), m.group(2)
-        return expand_range(start, end)
-    return [ref]
-    
-def get_text(dict, ref: str) -> str:
-    if not ref.strip():
+def get_mt_text(mt_dict, mt_ref: str) -> str:
+    if not mt_ref.strip():
         return ""
-    m = RANGE_RE.match(ref.strip())
+    m = RANGE_RE.match(mt_ref.strip())
     if m:
-#        print(f"RANGE_RE matched {ref} in get_text()")
-        start_ref, end_ref = m.group(1), m.group(2)
-        keys = list(dict)
-        start = keys.index(start_ref)
-        end = keys.index(end_ref)
-        parts = list(dict.values())[start:end+1]
+        start, end = m.group(1), m.group(2)
+        parts = []
+        for r in expand_range(start, end):
+            t = mt_dict.get(r, "")
+            if t:
+                parts.append(t)
         return " ".join(parts).strip()
-#    print(f"no RANGE_RE match on {ref} in get_text()")
-    return dict.get(ref.strip(), "")
+    return mt_dict.get(mt_ref.strip(), "")
 
 def sort_key(ref: str):
     return ref_to_tuple(ref)
 
-def row(rows, r, mt_dict, lxx_dict, at_dict):
-    ch = r.get("ch")
-    my_ref = r.get("my_ref")
-    lxx_ref = r.get("lxx_ref")
-    mt_ref  = r.get("mt_ref")
-    at_ref  = r.get("at_ref")
-    lxx_txt = get_text(lxx_dict,lxx_ref)
-    mt_txt  = mt_dict.get(mt_ref,"")
-    at_txt  = get_text(at_dict,at_ref)
-    
-#    print(f"ch=\"{ch}\" my_ref=\"{my_ref}\" mt_ref=\"{mt_ref}\" lxx_ref=\"{lxx_ref}\" at_ref=\"{at_ref}\"")
-    if (not lxx_txt.strip()) and (not mt_txt.strip()) and (not at_txt.strip()): # don't add empty rows
-        print(f"WARNING: Empty row at ch=\"{ch}\" my_ref=\"{my_ref}\" mt_ref=\"{mt_ref}\" lxx_ref=\"{lxx_ref}\" at_ref=\"{at_ref}\"")
-        return rows
-    rows.append({
-        "ch": ch,
-        "my_ref": my_ref,
-        "mt_ref": mt_ref if mt_ref.strip() else "—",
-        "mt_text": mt_txt,
-        "lxx_ref": lxx_ref if lxx_ref.strip() else "—",
-        "lxx_text": lxx_txt, 
-        "at_ref": at_ref if at_ref.strip() else "—",
-        "at_text": at_txt
-        })
-    return rows
-
 def main():
     lxx_dict = json.loads(LXX.read_text(encoding="utf-8"))
     mt_dict  = json.loads(MT.read_text(encoding="utf-8"))
-    at_dict  = json.loads(AT.read_text(encoding="utf-8"))
 
     rows = []
     with MAP.open(newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            rows=row(rows, r, mt_dict, lxx_dict, at_dict)
+            lxx_ref = r["lxx_ref"].strip()
+            mt_ref  = (r.get("mt_ref") or "").strip()
+
+            lxx_txt = lxx_dict.get(lxx_ref, "")
+            mt_txt  = get_mt_text(mt_dict, mt_ref)
+
+            rows.append({
+                "lxx_ref": lxx_ref,
+                "lxx_text": lxx_txt,
+                "mt_ref": mt_ref if mt_ref else "—",
+                "mt_text": mt_txt
+            })
+
+    # Ensure LXX order
+    rows.sort(key=lambda x: ref_sort_key(x["lxx_ref"]))
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["ch","my_ref","mt_ref","mt_text","lxx_ref","lxx_text", "at_ref", "at_text"])
+        w = csv.DictWriter(f, fieldnames=["lxx_ref","lxx_text","mt_ref","mt_text"])
         w.writeheader()
         w.writerows(rows)
 

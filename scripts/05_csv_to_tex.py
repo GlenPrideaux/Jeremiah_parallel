@@ -8,31 +8,26 @@ args = parser.parse_args()
 
 ROOT = Path(__file__).resolve().parents[1]
 if args.b:
-    INP = ROOT / "build" / "esther_parallel_be.csv"
-    OUT = ROOT / "tex" / "esther_parallel_be.tex"
+    INP = ROOT / "build" / "jeremiah_parallel_be.csv"
+    OUT = ROOT / "tex" / "jeremiah_parallel_be.tex"
 else:
-    INP = ROOT / "build" / "esther_parallel.csv"
-    OUT = ROOT / "tex" / "esther_parallel.tex"
+    INP = ROOT / "build" / "jeremiah_parallel.csv"
+    OUT = ROOT / "tex" / "jeremiah_parallel.tex"
 
 FOOTNOTE_DELIM = "\u241EFOOTNOTE\u241E"
 
 import re
 
 HEBREW_RE = re.compile(r'[\u0590-\u05FF]+')
-GREEK_RE = re.compile(r"[\u0370-\u03FF\u1F00-\u1FFF]+")
 ADD_OPEN = "\u241EADDOPEN\u241E"
 ADD_CLOSE = "\u241EADDCLOSE\u241E"
 SC_OPEN = "\u241ESCOPEN\u241E"
 SC_CLOSE = "\u241ESCCLOSE\u241E"
 SUP_OPEN = "\u241ESUPOPEN\u241E"
 SUP_CLOSE = "\u241ESUPCLOSE\u241E"
-FL_OPEN = "\u241EFLOPEN\u241E"
-FL_CLOSE = "\u241EFLCLOSE\u241E"
 
-def wrap_greek(text):
-    return GREEK_RE.sub(lambda m: r'\textgreek{' + m.group(0) + '}', text)
 def wrap_hebrew(text):
-    return HEBREW_RE.sub(lambda m: r'\texthebrew{' + m.group(0) + '}', wrap_greek(text))
+    return HEBREW_RE.sub(lambda m: r'\texthebrew{' + m.group(0) + '}', text)
 
 def inject_latex_footnotes(escaped_text: str) -> str:
     # escaped_text is already LaTeX-escaped
@@ -72,8 +67,6 @@ def render_markers(escaped_text: str) -> str:
             .replace(SC_CLOSE, "}")
             .replace(SUP_OPEN, r"\textsuperscript{")
             .replace(SUP_CLOSE, "}")
-            .replace(FL_OPEN, r"\fltext{")
-            .replace(FL_CLOSE, "}")
            )
 
 def render_structured_to_latex(escaped_text: str) -> str:
@@ -165,28 +158,24 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", encoding="utf-8") as out:
         out.write(r"""
-\section*{Esther Parallel Edition}
+\section*{Jeremiah Parallel Edition — Septuagint order}
 """)
 
         current_ch = None
         for r in rows:
-#            print("mt_ref="+r["mt_ref"]+"; lxx_ref="+r["lxx_ref"])
-            ch = r["ch"]
+            ch, _ = parse_ref(r["lxx_ref"])
             if ch != current_ch:
                 if current_ch is not None:
                     out.write("\\end{paracol}\n")
                 out.write(f"\\ChapterHeading{{{ch}}}\n")
-                out.write("\\begin{paracol}{3}\n")
-                out.write(r"\columnAHead\switchcolumn[1]\columnBHead\switchcolumn[2]\columnCHead\switchcolumn[0]*")
+                out.write("\\begin{paracol}{2}\n")
                 current_ch = ch
 
-            lxx_ref = esc(r["my_ref"])
+            lxx_ref = esc(r["lxx_ref"])
             mt_ref  = esc(r["mt_ref"])
-            at_ref  = esc(r["at_ref"])
             lxx_txt = render_structured_to_latex(inject_latex_footnotes(render_markers(wrap_hebrew(esc(r["lxx_text"])))))
             mt_txt  = render_structured_to_latex(inject_latex_footnotes(render_markers(wrap_hebrew(esc(r["mt_text"])))))
-            at_txt  = render_structured_to_latex(inject_latex_footnotes(render_markers(wrap_hebrew(esc(r["at_text"])))))
-            out.write(f"\\VersePair{{{mt_ref}}}{{{mt_txt}}}{{{lxx_ref}}}{{{lxx_txt}}}{{{at_ref}}}{{{at_txt}}}\n")
+            out.write(f"\\VersePair{{{lxx_ref}}}{{{lxx_txt}}}{{{mt_ref}}}{{{mt_txt}}}\n")
 
         out.write(r"""\end{paracol}
 \end{document}

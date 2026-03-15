@@ -2,17 +2,15 @@
 """
 02_parse_usfm.py
 
-Parse USFM sources into verse-indexed JSON for Esther, preserving:
+Parse USFM sources into verse-indexed JSON for Jeremiah, preserving:
 
 - Verse boundaries (\\c, \\v)
 - USFM footnotes (\\f ... \\f*) extracted from \ft, optionally prefixed by \fr
 - Poetry structure (\\q, \\q1, \\q2, \\m, \\p) encoded into the verse text using STRUCT_DELIM markers
 
 Output:
-  build/json/web_ESGV.json
-  build/json/prideaux_ESGA.json
-  build/json/web_EST.json
-  build/json/webbe_EST.json
+  build/json/prideaux_JER.json
+  build/json/web_JER.json
 
 Notes:
 - This script assumes you have already unpacked your USFM zips into build/usfm/* via 01_unpack_sources.py
@@ -36,7 +34,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # ----------------------------
 # USFM structural regexes
 # ----------------------------
-C_RE = re.compile(r"^\\c\s+(\d+|[A-F])\s*$")
+C_RE = re.compile(r"^\\c\s+(\d+)\s*$")
 V_RE = re.compile(r"^\\v\s+(\d+)([a-z]?)\s+(.*)$")
 
 # Poetry / paragraph markers (often appear on their own lines)
@@ -51,7 +49,6 @@ P_RE = re.compile(r"^\\p\s+(.*)$")        # \p ...
 FOOTNOTE_BLOCK_RE = re.compile(r"\\f\b.*?\\f\*", re.DOTALL)
 FR_RE = re.compile(r"\\fr\b\s*([^\\]+)")
 FT_RE = re.compile(r"\\ft\b\s*([^\\]+)")
-FL_RE = re.compile(r"\\fl\b\s*([^\\ ]+)")
 
 # Some footnotes contain inline “character style” runs like \+wh ... \+wh*
 # These contain backslashes and will truncate naive \ft capture unless removed first.
@@ -66,8 +63,6 @@ SC_OPEN = "\u241ESCOPEN\u241E"
 SC_CLOSE = "\u241ESCCLOSE\u241E"
 SUP_OPEN = "\u241ESUPOPEN\u241E"
 SUP_CLOSE = "\u241ESUPCLOSE\u241E"
-FL_OPEN = "\u241EFLOPEN\u241E"
-FL_CLOSE = "\u241EFLCLOSE\u241E"
 
 def extract_usfm_footnotes(raw: str) -> str:
     """
@@ -86,9 +81,6 @@ def extract_usfm_footnotes(raw: str) -> str:
 
         # Remove inline character-style markers (e.g., \+wh ... \+wh*)
         block = PLUS_MARK_RE.sub("", block)
-
-        # remove problematic \fl ... we don't check but should only be in footnotes
-        block = FL_RE.sub(f"{FL_OPEN}\\1{FL_CLOSE}", block)
 
         fr_m = FR_RE.search(block)
         fr = fr_m.group(1).strip() if fr_m else ""
@@ -243,7 +235,7 @@ def parse_usfm_file(path: Path):
             m = C_RE.match(s)
             if m:
                 flush_current()
-                chapter = m.group(1)
+                chapter = int(m.group(1))
                 current_v = None
                 continue
 
@@ -332,11 +324,11 @@ def parse_usfm_file(path: Path):
 
 
 # ----------------------------
-# Locate Esther in a USFM tree
+# Locate Jeremiah in a USFM tree
 # ----------------------------
 def find_book_file(folder: Path, book_id: str) -> Path:
     """
-    Find a USFM file whose \id matches book_id (e.g. EST).
+    Find a USFM file whose \id matches book_id (e.g. JER).
     Falls back to filename contains book_id.
     """
     for p in folder.rglob("*.usfm"):
@@ -352,14 +344,11 @@ def find_book_file(folder: Path, book_id: str) -> Path:
 # Main
 # ----------------------------
 def main():
-    # Adjust book ids if your set uses a different code for Esther.
+    # Adjust book ids if your set uses a different code for Jeremiah.
     jobs = [
-        ("web", "ESGV"),
-        ("web", "EST"),
-        ("webbe", "ESGV"),
-        ("webbe", "EST"),
-        ("Prideaux","ESGA"),
-        ("PrideauxBE","ESGA")
+        ("prideaux", "JER"),
+        ("web", "JER"),
+        ("webbe", "JER"),
     ]
 
     folders = [p for p in USFM_ROOT.iterdir() if p.is_dir()]

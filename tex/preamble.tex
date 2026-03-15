@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper]{extbook}
+\documentclass[9pt]{extbook}
 
 \usepackage[margin=18mm]{geometry}
 \usepackage{paracol}
@@ -7,9 +7,9 @@
 \usepackage{needspace}
 \usepackage{xcolor}
 
-\setlength{\columnsep}{8mm}
+\setlength{\columnsep}{10mm}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0pt}
+\setlength{\parskip}{1pt}
 \setlength{\belowfootnoteskip}{14pt}
 % Width reserved for verse numbers (tune)
 
@@ -22,11 +22,11 @@
 % Half-hanging label: half in margin, half in text
 \newcommand{\verselabel}[1]{%
     \hspace*{-0.5\verselabelwidth}%
-    \raisebox{0.4ex}{\scriptsize #1}%
+    {\textsuperscript{\scriptsize #1}}%
 }
 \newcommand{\emptyverselabel}[1]{%
     \hspace*{-0.5\verselabelwidth}%
-    {{\scriptsize\textcolor{gray}{#1}}}%
+    {\textsuperscript{\scriptsize\textcolor{gray}{#1}}}%
 }
 \newcommand{\smartverse}[2]{%
 \noindent
@@ -38,14 +38,12 @@
 \,#2\par
 }
 
-\newcommand{\VersePair}[6]{%
+\newcommand{\VersePair}[4]{%
   % \noindent\verselabel{#1}\,#2\par
   \smartverse{#1}{#2}
   \switchcolumn[1]
   % \noindent\verselabel{#3}\,#4\par
   \smartverse{#3}{#4}
-  \switchcolumn[2]
-  \smartverse{#5}{#6}
   \switchcolumn[0]*
 }
 
@@ -83,12 +81,6 @@
   ItalicFont     = {Ezra SIL},
   BoldItalicFont = {Ezra SIL}
 ]{Ezra SIL}
-\setotherlanguage{greek}
-\newfontfamily\greekfont[
-  BoldFont       = {SBL Greek},
-  ItalicFont     = {SBL Greek},
-  BoldItalicFont = {SBL Greek}
-]{SBL Greek}
 \usepackage{hyperref}
 \tolerance=1000
 \emergencystretch=2em
@@ -96,21 +88,3 @@
 
 \widowpenalty=6000
 \clubpenalty=3000
-
-\newcommand{\columnAHead}{%
-    \hspace*{-0.5\verselabelwidth}%
-    \small (MT)\par
-}
-\newcommand{\columnBHead}{%
-    \hspace*{-0.5\verselabelwidth}%
-    \small (LXX)\par
-}
-\newcommand{\columnCHead}{%
-    \hspace*{-0.5\verselabelwidth}%
-    \small (AT)\par
-}
-\newcommand{\fltext}[1]{%
-  {\bfseries{}#1 }%
-}
-
-\newif\ifbritish
